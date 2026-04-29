@@ -3,7 +3,16 @@
 .DS_Store
 
 # Mix working data — tracklists are personal
-mixes/
+/mixes/
+
+# Lesson notes — personal
+/lessons/
+
+# Reader app local artifacts
+reader/node_modules/
+reader/.next/
+reader/.turbo/
+reader/tsconfig.tsbuildinfo
 
 # Local Claude Code state
 .claude/settings.local.json

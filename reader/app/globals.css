@@ -1,0 +1,352 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif:
+    "Lora", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-display:
+    "Fraunces", "Lora", ui-serif, Georgia, "Times New Roman", Times, serif;
+
+  /* Warm paper palette */
+  --color-paper: #fbf7ef;
+  --color-paper-2: #f3ecdf;
+  --color-ink: #1c1917;
+  --color-ink-soft: #44403c;
+  --color-ink-mute: #78716c;
+  --color-rule: #e7dfd0;
+
+  /* Dark / midnight palette */
+  --color-night: #14110f;
+  --color-night-2: #1d1916;
+  --color-night-ink: #f5efe2;
+  --color-night-mute: #a8a29e;
+  --color-night-rule: #2c2723;
+
+  /* Accent (amber) */
+  --color-accent: #b45309;
+  --color-accent-soft: #fef3c7;
+  --color-night-accent: #fbbf24;
+  --color-night-accent-soft: #3a2a0a;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    @apply font-serif antialiased;
+    background-image:
+      radial-gradient(
+        circle at 20% 0%,
+        rgba(180, 83, 9, 0.04),
+        transparent 40%
+      ),
+      radial-gradient(
+        circle at 80% 100%,
+        rgba(120, 113, 108, 0.05),
+        transparent 50%
+      );
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  html.dark body {
+    background-color: var(--color-night);
+    color: var(--color-night-ink);
+    background-image:
+      radial-gradient(
+        circle at 20% 0%,
+        rgba(251, 191, 36, 0.04),
+        transparent 40%
+      ),
+      radial-gradient(
+        circle at 80% 100%,
+        rgba(168, 162, 158, 0.04),
+        transparent 50%
+      );
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+    color: var(--color-ink);
+  }
+  html.dark ::selection {
+    background-color: var(--color-night-accent-soft);
+    color: var(--color-night-ink);
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 50, "WONK" 0;
+  }
+
+  /* Reading view — full color overrides so the prose plugin's defaults don't bleed through */
+  .reading-prose {
+    @apply prose prose-lg max-w-[68ch] mx-auto leading-[1.8];
+    font-family: var(--font-serif);
+
+    --tw-prose-body: var(--color-ink-soft);
+    --tw-prose-headings: var(--color-ink);
+    --tw-prose-lead: var(--color-ink-soft);
+    --tw-prose-links: var(--color-accent);
+    --tw-prose-bold: var(--color-ink);
+    --tw-prose-counters: var(--color-ink-mute);
+    --tw-prose-bullets: var(--color-ink-mute);
+    --tw-prose-hr: var(--color-rule);
+    --tw-prose-quotes: var(--color-ink-soft);
+    --tw-prose-quote-borders: var(--color-accent);
+    --tw-prose-captions: var(--color-ink-mute);
+    --tw-prose-code: var(--color-ink);
+    --tw-prose-pre-code: var(--color-ink);
+    --tw-prose-pre-bg: var(--color-paper-2);
+    --tw-prose-th-borders: var(--color-rule);
+    --tw-prose-td-borders: var(--color-rule);
+  }
+  html.dark .reading-prose {
+    --tw-prose-body: var(--color-night-ink);
+    --tw-prose-headings: var(--color-night-ink);
+    --tw-prose-lead: var(--color-night-mute);
+    --tw-prose-links: var(--color-night-accent);
+    --tw-prose-bold: var(--color-night-ink);
+    --tw-prose-counters: var(--color-night-mute);
+    --tw-prose-bullets: var(--color-night-mute);
+    --tw-prose-hr: var(--color-night-rule);
+    --tw-prose-quotes: var(--color-night-ink);
+    --tw-prose-quote-borders: var(--color-night-accent);
+    --tw-prose-captions: var(--color-night-mute);
+    --tw-prose-code: var(--color-night-ink);
+    --tw-prose-pre-code: var(--color-night-ink);
+    --tw-prose-pre-bg: var(--color-night-2);
+    --tw-prose-th-borders: var(--color-night-rule);
+    --tw-prose-td-borders: var(--color-night-rule);
+  }
+  .reading-prose :where(h1, h2, h3, h4) {
+    font-family: var(--font-display);
+    font-variation-settings: "SOFT" 50, "WONK" 1;
+    letter-spacing: -0.015em;
+    color: var(--tw-prose-headings);
+  }
+  .reading-prose h1 {
+    @apply text-3xl md:text-4xl mb-6 mt-0;
+  }
+  .reading-prose h2 {
+    @apply text-2xl mt-12 mb-4;
+    border-bottom: 1px solid var(--tw-prose-hr);
+    padding-bottom: 0.4rem;
+  }
+  .reading-prose h3 {
+    @apply text-xl mt-8 mb-3;
+  }
+  .reading-prose p {
+    @apply my-5;
+  }
+  .reading-prose blockquote {
+    border-left: 3px solid var(--tw-prose-quote-borders);
+    background-color: var(--color-accent-soft);
+    @apply px-5 py-1 my-6 rounded-r-md not-italic font-normal;
+  }
+  html.dark .reading-prose blockquote {
+    background-color: var(--color-night-accent-soft);
+  }
+  .reading-prose blockquote p::before,
+  .reading-prose blockquote p::after {
+    content: "";
+  }
+  .reading-prose code {
+    background-color: var(--color-paper-2);
+    @apply px-1.5 py-0.5 rounded text-[0.9em] font-mono;
+    color: var(--tw-prose-code);
+    font-weight: 500;
+  }
+  html.dark .reading-prose code {
+    background-color: var(--color-night-2);
+  }
+  .reading-prose code::before,
+  .reading-prose code::after {
+    content: "";
+  }
+  .reading-prose table {
+    @apply my-8 text-base;
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .reading-prose th,
+  .reading-prose td {
+    border: 1px solid var(--tw-prose-th-borders);
+    @apply px-4 py-2;
+  }
+  .reading-prose th {
+    background-color: var(--color-paper-2);
+    @apply font-semibold;
+    color: var(--tw-prose-headings);
+  }
+  html.dark .reading-prose th {
+    background-color: var(--color-night-2);
+  }
+  .reading-prose ul,
+  .reading-prose ol {
+    @apply my-5;
+  }
+  .reading-prose li {
+    @apply my-1.5;
+  }
+  .reading-prose li::marker {
+    color: var(--tw-prose-bullets);
+  }
+  .reading-prose strong {
+    color: var(--tw-prose-bold);
+    @apply font-semibold;
+  }
+  .reading-prose a {
+    color: var(--tw-prose-links);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  /* Animated entry */
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-fade-up {
+    animation: fadeUp 0.4s ease-out both;
+  }
+
+  /* Variant switcher toolbar */
+  .variant-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 1rem;
+    z-index: 10;
+  }
+
+  .variant-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.3rem;
+    border-radius: 9999px;
+    background-color: var(--color-paper-2);
+    border: 1px solid var(--color-rule);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+  html.dark .variant-switcher {
+    background-color: var(--color-night-2);
+    border-color: var(--color-night-rule);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .variant-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--color-ink-mute);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
+    font-family: var(--font-serif);
+  }
+  .variant-pill:hover {
+    color: var(--color-ink);
+  }
+  html.dark .variant-pill {
+    color: var(--color-night-mute);
+  }
+  html.dark .variant-pill:hover {
+    color: var(--color-night-ink);
+  }
+  .variant-pill.is-active {
+    background-color: var(--color-ink);
+    color: var(--color-paper);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  html.dark .variant-pill.is-active {
+    background-color: var(--color-night-ink);
+    color: var(--color-night);
+  }
+
+  .variant-pill-star {
+    font-size: 0.65rem;
+    color: var(--color-accent);
+  }
+  html.dark .variant-pill-star {
+    color: var(--color-night-accent);
+  }
+  .variant-pill.is-active .variant-pill-star {
+    color: var(--color-night-accent);
+  }
+  html.dark .variant-pill.is-active .variant-pill-star {
+    color: var(--color-accent);
+  }
+
+  .set-primary-btn {
+    padding: 0.4rem 0.95rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
+    background-color: transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: var(--font-serif);
+  }
+  .set-primary-btn:hover:not(:disabled) {
+    background-color: var(--color-accent);
+    color: var(--color-paper);
+  }
+  .set-primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  html.dark .set-primary-btn {
+    border-color: var(--color-night-accent);
+    color: var(--color-night-accent);
+  }
+  html.dark .set-primary-btn:hover:not(:disabled) {
+    background-color: var(--color-night-accent);
+    color: var(--color-night);
+  }
+
+  .set-primary-flash {
+    padding: 0.4rem 0.95rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--color-accent);
+    animation: fadeUp 0.4s ease-out both;
+  }
+  html.dark .set-primary-flash {
+    color: var(--color-night-accent);
+  }
+}
