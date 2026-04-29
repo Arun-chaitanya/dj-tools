@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DJ Mix Tracklist",
+  "type": "object",
+  "required": ["mix", "tracks"],
+  "properties": {
+    "mix": {
+      "type": "object",
+      "required": ["video_id", "title", "channel", "url"],
+      "properties": {
+        "video_id": { "type": "string" },
+        "title": { "type": "string" },
+        "channel": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "duration": { "type": "string" },
+        "extracted_from": {
+          "type": "string",
+          "enum": ["description", "pinned_comment", "top_comment", "1001tracklists", "manual"]
+        }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "artist", "title", "status"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 1 },
+          "artist": { "type": "string" },
+          "title": { "type": "string" },
+          "label": { "type": "string", "description": "Record label, optional" },
+          "remix": { "type": "string", "description": "e.g. 'Original Mix', 'Carl Cox Remix'" },
+          "timestamp": { "type": "string", "description": "e.g. '02:34'" },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unidentified",
+              "researching",
+              "needs_manual_download",
+              "downloading",
+              "downloaded",
+              "failed",
+              "skipped"
+            ]
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["url", "source"],
+              "properties": {
+                "url": { "type": "string", "format": "uri" },
+                "source": { "type": "string", "description": "Bandcamp, SoundCloud, YouTube, Beatport, etc." },
+                "expected_quality": { "type": "string" },
+                "cost": { "type": "string" },
+                "notes": { "type": "string" }
+              }
+            }
+          },
+          "downloaded": {
+            "type": "object",
+            "properties": {
+              "file_path": { "type": "string" },
+              "source_url": { "type": "string", "format": "uri" },
+              "source_bitrate_kbps": { "type": "integer" },
+              "source_codec": { "type": "string" },
+              "transcoded_to_kbps": { "type": "integer" },
+              "downloaded_at": { "type": "string", "format": "date-time" }
+            }
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

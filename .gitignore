@@ -1,0 +1,9 @@
+.env
+.env.local
+.DS_Store
+
+# Mix working data — tracklists are personal
+mixes/
+
+# Local Claude Code state
+.claude/settings.local.json
