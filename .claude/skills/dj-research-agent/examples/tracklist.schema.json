@@ -31,6 +31,7 @@
           "label": { "type": "string", "description": "Record label, optional" },
           "remix": { "type": "string", "description": "e.g. 'Original Mix', 'Carl Cox Remix'" },
           "timestamp": { "type": "string", "description": "e.g. '02:34'" },
+          "genre": { "type": "string", "description": "Library folder name. Examples: 'Bollywood', 'Bollywood Tech House', 'Telugu', 'English', 'Hip Hop', 'Punjabi'." },
           "status": {
             "type": "string",
             "enum": [
@@ -62,7 +63,8 @@
             "properties": {
               "file_path": { "type": "string" },
               "source_url": { "type": "string", "format": "uri" },
-              "source_bitrate_kbps": { "type": "integer" },
+              "source_bitrate_kbps": { "type": "integer", "description": "Bitrate as claimed by the source page (e.g. '320' label on pagalfree)" },
+              "measured_bitrate_kbps": { "type": "integer", "description": "Actual bitrate measured by ffprobe after download. Compare against source_bitrate_kbps to detect mislabeled files." },
               "source_codec": { "type": "string" },
               "transcoded_to_kbps": { "type": "integer" },
               "downloaded_at": { "type": "string", "format": "date-time" }

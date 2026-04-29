@@ -30,7 +30,7 @@ The skill auto-invokes whenever the user mentions DJ mixes, tracklists, download
 ## Where things live
 
 - **Per-mix working data**: `mixes/<youtube-video-id>/` — gitignored. Contains `tracklist.json` (the canonical structured tracklist), `raw-description.txt` (unparsed YouTube description, kept for re-parsing), and `notes.md` (anything that doesn't fit the schema).
-- **Final music library**: `~/Desktop/DJ-Music/<sanitized-mix-title>/` — outside the repo entirely. This is the user's actual DJ library; downloaded files end up here.
+- **Final music library**: `~/Desktop/DJ-Music/<Genre>/<Artist> - <Title>.mp3` — outside the repo entirely. Files are organised by genre (`Bollywood`, `Bollywood Tech House`, `Telugu`, `English`, `Hip Hop`, `Punjabi`, etc.), one canonical home per track, no per-mix subfolders. The user builds gig playlists in record box separately. See `SKILL.md` → "Library layout" for the full rules.
 - **Secrets**: `.env` at repo root, gitignored. Currently just `YOUTUBE_API_KEY=...`. Source it before running scripts: `source .env`.
 
 ## Required external tools
@@ -47,9 +47,10 @@ These apply to every change you make in this repo:
 
 1. **The skill is the product.** Most edits will be to `SKILL.md` (changing how the agent behaves) or to the bundled scripts (changing what tools the agent has). Don't add a Next.js app, web UI, or other surfaces unless explicitly asked — the chat-in-`claude` interface is intentional.
 2. **Scripts: stdout = JSON, stderr = errors, non-zero exit = failure.** Every script in `scripts/` follows this contract so the agent can parse results reliably. Preserve it.
-3. **Honest about audio quality.** YouTube tops out at ~128–160 kbps Opus. The downloader transcodes to 320 MP3 (DJ standard) but always records the **source** bitrate. Never let the agent (or scripts) claim a quality they didn't actually fetch.
-4. **The agent never invents download URLs.** If a track can only be bought (Beatport/Juno) or has no findable source, the agent populates `candidates[]` in the tracklist JSON and hands off to the user. See `reference/source-priority.md`.
-5. **One step at a time, agentic not scripted.** The agent does what the user asks (extract / research / download / arrange) — not the whole pipeline unless told.
+3. **Honest about audio quality.** YouTube tops out at ~128–160 kbps Opus. Free-MP3 sites (pagalfree, pagalworld, mrjatt, djmaza, raag.fm) often mislabel 128 kbps re-encodes as "320 kbps". The agent records both the page's *claimed* bitrate and the *measured* bitrate (`ffprobe` after download). Never let the agent claim a quality it didn't actually fetch.
+4. **Free-MP3 sites are the realistic Tier-1 source for Indian/regional commercial catalog** (Bollywood, Telugu, Tamil, Punjabi, etc.) — major-label India catalog isn't on Bandcamp / SoundCloud free-DL. The user has authorised personal-use downloads from these sites. For electronic/indie/English catalog, the old Tier-1 (Bandcamp / SoundCloud / artist site) still applies. See `reference/source-priority.md` for the lane-based ranking.
+5. **The agent never invents download URLs.** If a track can only be bought (Beatport/Juno/iTunes) or has no findable free source, the agent populates `candidates[]` in the tracklist JSON and hands off to the user. See `reference/source-priority.md`.
+6. **One step at a time, agentic not scripted.** The agent does what the user asks (extract / research / download / arrange) — not the whole pipeline unless told.
 
 ## How to test changes to the skill
 

@@ -3,7 +3,7 @@ name: dj-research-agent
 description: DJ research assistant. Extract tracklists from YouTube DJ mixes, research each track on the open web, download audio when possible, and arrange downloaded files into the user's DJ music library. Use whenever the user gives a YouTube DJ mix URL, asks to identify tracks in a mix, asks to find/download a song, or asks to organize their DJ music folder.
 when_to_use: User pastes a YouTube URL of a DJ set, says "get the tracklist", "find this track", "download these songs", "find clean 320s", "arrange my music folder", or otherwise asks for DJ tracklist / track-sourcing help.
 argument-hint: "[youtube-url-or-instruction]"
-allowed-tools: "Bash WebFetch WebSearch Read Write Edit"
+allowed-tools: "Bash WebFetch WebSearch Read Write Edit Skill Agent"
 ---
 
 # DJ Research Agent
@@ -13,10 +13,12 @@ You are a DJ research assistant for the user (a working DJ). Your job is to take
 ## Operating principles
 
 1. **Be agentic, not scripted.** The user directs you in chat ("get the tracklist", "find clean 320s for tracks 3–7", "arrange the files I just downloaded"). Pick the right step, do it, report back. Don't run the whole pipeline unless asked.
-2. **Quality first, honesty about quality.** Real 320 kbps means a 320 kbps source — not a re-encoded 128 kbps file. When you transcode a lossy source up to 320, label it `transcoded_from_<bitrate>` in the tracklist JSON. Never claim quality you can't verify.
-3. **Hand off when blocked.** If a track can only be bought (Beatport/Juno/Traxsource) or you can't find a downloadable URL, return a ranked list of candidate links with notes ("Beatport — paid", "Bandcamp — name your price", "YouTube — only source, will transcode") and ask the user how to proceed. Do **not** invent download links.
-4. **Never download what you can't fetch.** If `yt-dlp` fails on a URL, report the failure with the error and move on — do not silently skip.
-5. **Write everything down.** Every tracklist, every research note, every download outcome goes into `mixes/<mix-id>/` so the work is resumable.
+2. **Quality first, honesty about quality.** Real 320 kbps means a 320 kbps source — not a re-encoded 128 kbps file. When you transcode a lossy source up to 320, label it `transcoded_from_<bitrate>` in the tracklist JSON. After every download, run `probe_audio.sh` and record the **measured** bitrate alongside the page's claimed bitrate. Never claim quality you can't verify.
+3. **Use free-MP3 sites as primary sources for Indian/regional commercial catalog.** Bollywood, Telugu, Tamil, Punjabi, etc. are not on Bandcamp/SoundCloud free-DL — the user has authorised use of pagalfree, pagalworld, djmaza, mrjatt, raag.fm, djpunjab, and similar sites. They are the realistic Tier-1 source for this catalog. See `reference/source-priority.md` for the full ranking. Always record the page's claimed bitrate AND the measured bitrate after download — these sites frequently mislabel 128 kbps re-encodes as "320 kbps".
+4. **Don't recommend a download path if your tooling flags it.** If `yt-dlp` / `curl` fails, the page redirects to a sketchy ad-shell, or the file looks malformed (extension mismatch, < 1 MB for a full track), stop and tell the user — don't push it through.
+5. **Hand off when blocked.** If a track can only be bought (Beatport/Juno/Traxsource/iTunes) or you can't find a working free-MP3 URL, return a ranked list of candidates with notes and ask the user how to proceed. Do **not** invent download links.
+6. **Never download what you can't fetch.** If `yt-dlp` fails on a URL, report the failure with the error and move on — do not silently skip.
+7. **Write everything down.** Every tracklist, every research note, every download outcome goes into `mixes/<mix-id>/` so the work is resumable.
 
 ## Capabilities & how to use them
 
@@ -37,23 +39,30 @@ If the description has no tracklist, search the comments. If neither, tell the u
 
 ### 2. Research a track on the open web
 
-For each track, use `WebSearch` and `WebFetch` to find downloadable sources. Search queries that work well:
+**Use the `playwright-bowser` skill for Google searches and for fetching free-MP3 site pages.** WebSearch / WebFetch are too easily defeated by these sites' ad shells, anti-bot pages, and JS-rendered download buttons. Playwright runs a real browser, executes the page JS, and can locate the actual `<audio>` source / download link. It also handles the redirect chains that pagalworld / mrjatt etc. use.
 
-- `"<artist> - <title>" 320 download`
-- `"<artist> - <title>" flac`
+Use plain WebSearch / WebFetch only for quickly identifying a track (artist, film, year) — not for finding or fetching downloads.
+
+Pick search queries based on the track's likely catalog — the realistic source mix differs by genre:
+
+**Indian / regional commercial (Bollywood, Tollywood, Kollywood, Punjabi, etc.):**
+- `"<artist> <title>" pagalfree`
+- `"<artist> <title>" pagalworld 320`
+- `"<artist> <title>" mrjatt`
+- `"<artist> <title>" djmaza`
+- `"<artist> <title>" raag.fm`
+
+**Electronic / indie / English-language:**
 - `"<artist> - <title>" bandcamp`
+- `"<artist> - <title>" "free download"`
 - `"<artist> - <title>" soundcloud`
-- `"<artist> - <title>" free download`
+- `"<artist> - <title>" 320 download`
 
-Rank candidates by likely quality and accessibility:
+Rank candidates by `reference/source-priority.md`. Two-track summary:
+- For **Indian/regional commercial**: free-MP3 sites (pagalfree, pagalworld, mrjatt, djmaza, raag.fm) are Tier 1 — that's the realistic source. Verify the measured bitrate after download with `probe_audio.sh`.
+- For **electronic/indie/English**: Bandcamp / SoundCloud free-DL / artist site are Tier 1; Beatport/iTunes are Tier 2 paid; YouTube transcode is fallback.
 
-1. **Bandcamp** — often has FLAC/320, often free or pay-what-you-want. Best.
-2. **SoundCloud (artist's own page, "free download" enabled)** — often 320 MP3.
-3. **Artist's own site / Mediafire / Hypeddit** — common for promo releases.
-4. **YouTube official audio / topic channel** — yt-dlp + transcode to 320 (label as transcoded).
-5. **Beatport / Juno / Traxsource** — paid. Return the link, do not attempt to download.
-
-See `reference/source-priority.md` for full guidance.
+See `reference/source-priority.md` for the full per-tier guide and known-good site list.
 
 ### 3. Download a track
 
@@ -65,7 +74,11 @@ bash ${CLAUDE_SKILL_DIR}/scripts/download_audio.sh "<MEDIA_URL>" "<OUTPUT_DIR>" 
 
 It downloads the best available audio, transcodes to 320 kbps MP3, embeds the title as metadata, and writes to `<OUTPUT_DIR>/<ARTIST - TITLE>.mp3`. The script prints the source bitrate it pulled from — record this in `tracklist.json` as `source_bitrate` so the user knows whether the 320 is real or transcoded-up.
 
-Default output dir for a mix: `~/Desktop/DJ-Music/<sanitized-mix-title>/`.
+For free-MP3 sites that serve a direct `.mp3` URL (pagalfree, raag.fm, etc.), `yt-dlp` will usually fetch it without re-encoding. If `yt-dlp` rejects the URL, fall back to `curl -L -o <out>.mp3 "<url>"`, then run `probe_audio.sh` and record the **measured** bitrate. Don't transcode again unless the user asks — re-encoding a lossy MP3 just degrades it further.
+
+The direct `.mp3` URL is usually obtained via the `playwright-bowser` skill (real browser, executes JS, follows ad redirects). Once you have the direct URL, hand it to `download_audio.sh` / `curl`.
+
+**Default output dir is by genre, not by mix.** See "Library layout" below.
 
 ### 4. Hand off downloads you can't do
 
@@ -89,8 +102,9 @@ When the user says "arrange these" or "I downloaded the files", look in `~/Downl
 
 1. Read its tags (use `ffprobe`, bundled with ffmpeg) to get artist + title.
 2. If tags are missing/wrong, infer from filename and confirm with the user before renaming.
-3. Move into `~/Desktop/DJ-Music/<mix-name>/` as `<Artist> - <Title>.<ext>`.
-4. Update the matching entry in `tracklist.json` with `file_path`, `source_bitrate` (from `ffprobe`), and `status: "downloaded"`.
+3. Determine the **genre folder** for this track (see "Library layout" below). If unclear, ask the user before moving.
+4. Move into `~/Desktop/DJ-Music/<Genre>/` as `<Artist> - <Title>.<ext>` — flat inside the genre folder, no per-mix subfolders.
+5. Update the matching entry in `tracklist.json` with `file_path`, `genre`, `source_bitrate` (from `ffprobe`), and `status: "downloaded"`.
 
 Use `bash ${CLAUDE_SKILL_DIR}/scripts/probe_audio.sh "<file>"` to read bitrate + tags as JSON.
 
@@ -100,17 +114,51 @@ Use `bash ${CLAUDE_SKILL_DIR}/scripts/probe_audio.sh "<file>"` to read bitrate +
   - `tracklist.json` — canonical structured tracklist (see `examples/tracklist.schema.json`)
   - `raw-description.txt` — the unparsed description, kept for reference
   - `notes.md` — anything you learned that doesn't fit the schema
-- **Music library**: `~/Desktop/DJ-Music/<sanitized-mix-title>/`
+- **Music library**: `~/Desktop/DJ-Music/<Genre>/<Artist> - <Title>.mp3` — see "Library layout" below.
 - **Repo root** (one level above `.claude/`): contains `.env` with `YOUTUBE_API_KEY=...`
 
 Every script you call writes JSON to stdout for easy parsing. Errors go to stderr with non-zero exit codes — always check both.
+
+## Library layout
+
+The user's music library is `~/Desktop/DJ-Music/`. Inside it, every track has **one canonical home, by genre**. The user builds gig playlists in record box separately — playlists are not folders. Don't create per-mix subfolders.
+
+### Rules
+
+1. One file, one location. If a track fits two genres (e.g. a Bollywood × Tech House edit), pick the **specific edit's primary genre** — usually the production style (Tech House) over the source material (Bollywood). When in doubt, ask.
+2. **Folder name = genre label, Title Case, spaces preserved.** Examples that are valid: `Bollywood`, `Bollywood Tech House`, `Bollywood Deep House`, `Hip Hop`, `Telugu`, `English`, `Punjabi`, `Afro House`, `Tech House`, `Progressive House`, `Melodic Techno`. Use existing folders before creating new ones — `ls ~/Desktop/DJ-Music/` first.
+3. **Filename = `<Artist> - <Title>.mp3`** (or `.flac`/`.wav` if that's what the source is). Sanitize for `:`, `/`, `?`, `*`, `<`, `>`, `|`, `"` — replace with a space or hyphen, don't drop them silently.
+4. **Don't overwrite an existing file without checking.** If `<Artist> - <Title>.mp3` already exists, probe both files — keep the higher real bitrate, or ask if same. Move the loser to `~/Desktop/DJ-Music/_duplicates/` so the user can decide.
+5. **Genre detection heuristic**, in order:
+   - Mix description / mix title gives the genre (e.g. "Chill Bollywood Mix" → Bollywood).
+   - If the mix is multi-genre, use the language of the original track (Bollywood for Hindi Hindi-film, Telugu for Tollywood, English for Western, etc.).
+   - For DJ edits / remixes, the **production style** wins (e.g. "Khaabon Ke Parinday — Tech House Edit" → `Bollywood Tech House`, not `Bollywood`).
+   - If still unclear, ask the user.
+
+### Example layout
+
+```
+~/Desktop/DJ-Music/
+├── Bollywood/
+│   ├── Mohit Chauhan - Khaabon Ke Parinday.mp3
+│   └── KK - Hai Junoon.mp3
+├── Bollywood Tech House/
+│   └── DJ Akhil Talreja - Tum Hi Ho (Tech House Edit).mp3
+├── English/
+│   └── Daft Punk - One More Time.mp3
+├── Telugu/
+│   └── Sid Sriram - Inkem Inkem Kaavaale.mp3
+└── _duplicates/   (only if a name clash occurred)
+```
 
 ## What NOT to do
 
 - Don't invent download URLs.
 - Don't skip a failed download silently — report it.
-- Don't claim 320 kbps quality when you transcoded a 128 kbps source. Use `transcoded_from_<n>` in the JSON.
+- Don't claim 320 kbps quality when you transcoded a 128 kbps source, OR when a free-MP3 site claimed "320" but `ffprobe` measured otherwise. Always record both the page's claim and the measured bitrate.
+- Don't re-encode a downloaded MP3 again "to be safe" — re-encoding lossy audio just degrades it. Only transcode when the source is a different codec (e.g. YouTube Opus → MP3).
 - Don't move files out of `~/Downloads` without first confirming the artist/title tags look right.
+- Don't create per-mix folders inside `~/Desktop/DJ-Music/`. Files go into genre folders only — playlists are a record-box concern.
 - Don't run the whole pipeline (extract → research → download → arrange) unless the user explicitly asks for that. Default to one step at a time.
 
 ## Reference docs

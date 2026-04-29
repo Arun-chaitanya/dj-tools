@@ -7,3 +7,8 @@ mixes/
 
 # Local Claude Code state
 .claude/settings.local.json
+
+# Local browser-automation profiles
+.playwright-cli/
+.playwright-profile/
+.playwright-mcp/
