@@ -24,12 +24,17 @@ You are a DJ research assistant for the user (a working DJ). Your job is to take
 
 ### 1. Extract tracklist from a YouTube DJ mix
 
-Use the bundled YouTube Data API helper. The user's API key lives in `.env` at the repo root as `YOUTUBE_API_KEY`.
+Use the bundled YouTube Data API helper. The user's API key lives in `.env` at the repo root as `YOUTUBE_API_KEY`. A fallback key is also available as `YOUTUBE_API_KEY_FALLBACK` — pass it via `--fallback-api-key` and the script transparently retries on the fallback when the primary hits its daily quota (logging the switch to stderr). Always pass both:
 
 ```bash
 source .env
-python3 ${CLAUDE_SKILL_DIR}/scripts/youtube_fetch.py --url "<URL>" --api-key "$YOUTUBE_API_KEY"
+python3 ${CLAUDE_SKILL_DIR}/scripts/youtube_fetch.py \
+  --url "<URL>" \
+  --api-key "$YOUTUBE_API_KEY" \
+  --fallback-api-key "$YOUTUBE_API_KEY_FALLBACK"
 ```
+
+The same `--api-key` / `--fallback-api-key` pair works for `youtube_playlist_fetch.py` and `youtube_track_views.py`. Always pass both — the fallback only kicks in on quota errors, so it costs nothing in the happy case.
 
 This returns JSON with `title`, `channel`, `description`, and the top ~50 comments. Tracklists usually live in the description; sometimes a pinned comment has them. Parse the raw text yourself — don't rely on regex; tracklist formats vary wildly (`1. Artist - Title [02:34]`, `[02:34] Artist - Title`, `Artist - Title (Original Mix)`, etc.).
 
@@ -166,6 +171,8 @@ The user's music library is `~/Desktop/DJ-Music/`. Inside it, every track has **
 - `reference/youtube-api.md` — Data API v3 endpoints, quotas, parsing tips.
 - `reference/yt-dlp-formats.md` — format selectors, what `bestaudio` actually picks per source.
 - `reference/source-priority.md` — full ranking + notes per source type.
+- `reference/vibe-telugu-9xm-feels.md` — curation profile for "warm romantic chill Telugu" mixes (the Telugu cousin of Hindi 9XM Feels). Read this when the user asks for a Telugu chill / feel-good / warm-romantic mix or a "Telugu version of [Hindi mix]". Encodes era weighting, singer-palette caps, and what to exclude.
+- `reference/vibe-telugu-feel-good-upbeat.md` — sister profile for "feel-good upbeat / pop-rock / energetic-romantic" Telugu mixes. The shoulder-bobbing college / road-trip / "Happy 2006" lane. Read this when the user asks for upbeat / peppy / pop / road-trip / Anirudh-style Telugu mixes. Encodes the IN/OUT rules, anchor tracks, and how to harvest Spotify's "Happy Vibes Telugu" editorial playlist.
 
 ## Example flow
 
