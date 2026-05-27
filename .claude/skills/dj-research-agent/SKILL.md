@@ -333,6 +333,29 @@ When rekordbox's auto-detected phrases are wrong for a track (mislabelled chorus
 
 **Safety:** `set_phrases.py` backs up the .EXT to `.EXT.bak-<timestamp>` before writing. `lock_track.py` backs up `master.db` to `master.db.bak-<timestamp>` before writing. Both refuse to write while rekordbox is running unless `--auto-close-rekordbox` (graceful quit + reopen) or `--force` (write anyway — risks rekordbox overwriting on its next save) is passed.
 
+### 4g. Read the YouTube "most replayed" heatmap for a track
+
+YouTube exposes a 100-bucket "most replayed" graph for many videos. It's a coarse popularity-of-region signal — useful as a sanity check ("which part of this song do listeners actually rewind to?") when picking the famous/anchor region for a set. Pair it with the rekordbox phrase grid (`phrase_grid.py`) to map heatmap peaks onto phrase boundaries.
+
+```bash
+# By rekordbox track_id (script searches YT, picks the duration-matched video):
+set -a && source .env && set +a   # exports YOUTUBE_API_KEY
+.claude/skills/dj-research-agent/.venv/bin/python \
+  .claude/skills/dj-research-agent/scripts/youtube_heatmap.py \
+  --track-id 67810230 --top-peaks 5
+
+# Or pass the URL directly (no API key needed, no rekordbox lookup):
+.claude/skills/dj-research-agent/.venv/bin/python \
+  .claude/skills/dj-research-agent/scripts/youtube_heatmap.py \
+  --url "https://www.youtube.com/watch?v=mMqJmHfh_sE"
+```
+
+**Output:** `{ has_heatmap, buckets[100], peaks[N] }`. Each bucket is `{start_sec, end_sec, intensity}` (intensity in 0–1). Peaks are contiguous high-intensity regions (≥ mean + 1σ, single-bucket gaps bridged) ranked by avg intensity — typically 1–3 of them for a 3-min song.
+
+**`has_heatmap: false` is normal.** Some videos don't have a heatmap (low view count, age-restricted, etc.). The script exits 0 in that case — treat it as "no signal available", not an error.
+
+**Video matching for `--track-id`:** the picker requires the YT candidate's duration to be within ±15% of the rekordbox track's duration. If no candidate matches, the script returns `has_heatmap: false, reason: "no_duration_match"` and the candidate list — pass `--url` to override.
+
 ### 5. Arrange downloaded files into the library
 
 When the user says "arrange these" or "I downloaded the files", look in `~/Downloads` (or wherever they specify) for audio files (`.mp3`, `.flac`, `.wav`, `.aiff`, `.m4a`). For each file:

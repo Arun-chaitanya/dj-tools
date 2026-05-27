@@ -44,3 +44,25 @@ Download with browser cookies (for restricted content):
 ```bash
 yt-dlp --cookies-from-browser chrome -f bestaudio "<URL>"
 ```
+
+## "Most replayed" heatmap (used by `youtube_heatmap.py`)
+
+yt-dlp returns a `heatmap` field in `--dump-single-json` output when YouTube exposes the "most replayed" graph for a video. Probe it directly:
+
+```bash
+yt-dlp --dump-single-json --skip-download --no-warnings "<URL>" \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('heatmap'))"
+```
+
+**Shape:** list of 100 buckets, each `{start_time, end_time, value}` where `value` is in [0, 1] (1.0 = most replayed point in the video). Buckets divide the full video duration into 100 equal slices.
+
+**Absent heatmap:** `heatmap` is `None`/missing for some videos — typically low view count, age-restricted, or recently uploaded. This is not an error; treat as "no signal available". `youtube_heatmap.py` reports `has_heatmap: false` and exits 0.
+
+**Peak derivation (in `youtube_heatmap.py`):**
+
+- Threshold = `mean + 1 stddev` of all 100 values.
+- Buckets at or above threshold form regions; single-bucket gaps are bridged (so a brief dip in the middle of a chorus doesn't split the peak).
+- Each region returns `{start_sec, end_sec, intensity_avg, intensity_max, duration_sec, rank}`. Ranked by avg intensity.
+- A typical 3–4 min song yields 1–3 peaks. The top peak is usually the chorus / hook.
+
+**Why heatmap over view-count alone:** view count tells you a song is popular; the heatmap tells you *which seconds within that song* listeners rewind to. That's the "famous part" — exactly what we want when picking the anchor region of a track for a DJ set.
