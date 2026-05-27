@@ -268,6 +268,71 @@ The rekordbox playlist name defaults to `set.title` from the JSON. Override with
 
 Safety semantics are the same as the cue writers: refuses to write while rekordbox is running unless `--auto-close-rekordbox` or `--force`; backs up `master.db` before any write; one transaction per invocation with rollback on failure. See `reference/rekordbox-playlists.md` for the schema + op-order details.
 
+### 4e. Read the beat grid + phrase structure for one track
+
+When you need rekordbox's analyzer output for a track (beat positions, bar boundaries, and the phrase/section labels like intro/verse/chorus/bridge/outro), use `phrase_grid.py`. This is read-only — it parses the per-track `.DAT` / `.EXT` ANLZ files under `~/Library/Pioneer/rekordbox/share/PIONEER/USBANLZ/`. Safe to run while rekordbox is open.
+
+```bash
+.claude/skills/dj-research-agent/.venv/bin/python \
+  .claude/skills/dj-research-agent/scripts/phrase_grid.py \
+  --track-id 67810230 > /tmp/grid.json
+```
+
+Output (stdout JSON): `track` (id/title/bpm/duration), `mood` (1=high, 2=mid, 3=low — the phrase-vocabulary band rekordbox picked), `phrases[]` (each with `label`, `start_beat`, `start_sec`, `end_sec`), `bars[]` (4-beat groupings with start/end ms), `beats[]` (per-beat time/position/tempo).
+
+**Phrase analysis must be enabled in rekordbox** for the .EXT file to contain a PSSI tag. Preferences → Analysis → Track Analysis Settings → enable Phrase, then re-analyze the track. If PSSI is absent, the script still emits the beat grid + bars and sets `has_phrases: false`.
+
+See `reference/rekordbox-extraction.md` → "Reading the beat grid + phrase structure" for the full output schema and the kind→label mapping by mood.
+
+### 4f. Edit a track's phrase analysis + lock it
+
+When rekordbox's auto-detected phrases are wrong for a track (mislabelled chorus, drifted boundary, etc.), edit them with `set_phrases.py`. The plan JSON gives the full new phrase list (full replacement, not diff). After writing, lock the track so rekordbox doesn't re-overwrite on its next analyze pass.
+
+**Plan shape** (see `reference/rekordbox-extraction.md` → "Editing phrase analysis"):
+
+```jsonc
+{
+  "track_id": "67810230",
+  "mood": 3,                                    // 1=high, 2=mid, 3=low
+  "phrases": [
+    { "start_beat": 1,   "label": "intro" },
+    { "start_beat": 17,  "label": "verse-1" },
+    { "start_beat": 101, "label": "bridge" },
+    { "start_beat": 393, "label": "outro" }
+  ]
+}
+```
+
+**Workflow:**
+
+```bash
+# 1. Dump the current phrases as a starting point:
+.claude/skills/dj-research-agent/.venv/bin/python \
+  .claude/skills/dj-research-agent/scripts/phrase_grid.py \
+  --track-id 67810230 > /tmp/grid.json
+# (then transform /tmp/grid.json into a plan: keep track_id, mood, and a
+#  phrases[] of {start_beat, label} — edit as needed)
+
+# 2. Dry-run to validate + see diff:
+.claude/skills/dj-research-agent/.venv/bin/python \
+  .claude/skills/dj-research-agent/scripts/set_phrases.py \
+  --plan /tmp/plan.json --dry-run
+
+# 3. Apply (closes + reopens rekordbox; locks track in same call):
+.claude/skills/dj-research-agent/.venv/bin/python \
+  .claude/skills/dj-research-agent/scripts/set_phrases.py \
+  --plan /tmp/plan.json --auto-lock --auto-close-rekordbox
+
+# Lock / unlock by itself (without editing phrases):
+.claude/skills/dj-research-agent/.venv/bin/python \
+  .claude/skills/dj-research-agent/scripts/lock_track.py \
+  --track-id 67810230 --lock --auto-close-rekordbox
+```
+
+**Lock = `DjmdContent.Analysed |= 0x80`** (bit 7). When set, rekordbox preserves cues / beat grid / phrase analysis on re-analyze. Without lock, rekordbox **will** overwrite edited phrases the next time the track is analyzed.
+
+**Safety:** `set_phrases.py` backs up the .EXT to `.EXT.bak-<timestamp>` before writing. `lock_track.py` backs up `master.db` to `master.db.bak-<timestamp>` before writing. Both refuse to write while rekordbox is running unless `--auto-close-rekordbox` (graceful quit + reopen) or `--force` (write anyway — risks rekordbox overwriting on its next save) is passed.
+
 ### 5. Arrange downloaded files into the library
 
 When the user says "arrange these" or "I downloaded the files", look in `~/Downloads` (or wherever they specify) for audio files (`.mp3`, `.flac`, `.wav`, `.aiff`, `.m4a`). For each file:
