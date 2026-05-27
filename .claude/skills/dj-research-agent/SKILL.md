@@ -38,7 +38,12 @@ The same `--api-key` / `--fallback-api-key` pair works for `youtube_playlist_fet
 
 This returns JSON with `title`, `channel`, `description`, and the top ~50 comments. Tracklists usually live in the description; sometimes a pinned comment has them. Parse the raw text yourself — don't rely on regex; tracklist formats vary wildly (`1. Artist - Title [02:34]`, `[02:34] Artist - Title`, `Artist - Title (Original Mix)`, etc.).
 
-After parsing, write the structured tracklist to `mixes/<mix-id>/tracklist.json` using the schema in `examples/tracklist.schema.json`. The `<mix-id>` is the YouTube video ID.
+After parsing, write the structured tracklist to `mixes/<mix-id>/tracklist.json`. The `<mix-id>` is the YouTube video ID. **Two schemas exist** — pick the right one:
+
+- `examples/tracklist.schema.json` — for tracklists *extracted from a single YouTube DJ mix* (the original use case). Has `mix.video_id`, `mix.channel`, `extracted_from`, per-track `candidates[]`, etc.
+- `examples/curated-lane-tracklist.schema.json` — for *hand-curated lane collections* harvested from multiple playlists (e.g. `telugu-9xm-feels-v1`, `telugu-feel-good-upbeat-v2`). This is also what the reader UI at `/mixes/<mix-id>` reads.
+
+If you're unsure: extracting from one YouTube URL → first schema. Building a "best of <vibe>" lane from many sources → second schema. The second schema is documented in detail in the repo `CLAUDE.md` under "Tracklist schema".
 
 If the description has no tracklist, search the comments. If neither, tell the user — don't hallucinate a tracklist.
 
@@ -68,6 +73,31 @@ Rank candidates by `reference/source-priority.md`. Two-track summary:
 - For **electronic/indie/English**: Bandcamp / SoundCloud free-DL / artist site are Tier 1; Beatport/iTunes are Tier 2 paid; YouTube transcode is fallback.
 
 See `reference/source-priority.md` for the full per-tier guide and known-good site list.
+
+### 2b. Browse YouTube with Playwright when the Data API can't
+
+The bundled `youtube_*.py` scripts (search, video, playlist) cover most needs cheaply, but they have hard limits — search results don't filter by audio language, the API doesn't expose YouTube's "Up next" / related-video sidebar, and the `search.list` endpoint costs 100 quota units per query. When a curation task needs **breadth** (e.g. "harvest all of composer X's Telugu work, not their Tamil hits", "what does YouTube recommend alongside Hoyna Hoyna?", "browse a music label's channel videos tab sorted by 'Most popular'"), use the **`playwright-bowser` skill** to drive a real headless browser against `youtube.com` directly.
+
+When this beats the Data API:
+
+- **Channel exploration** — `https://www.youtube.com/@AdityaMusic/videos?sort=p` gives the channel's most-popular uploads sorted by views, with thumbnails and view counts inline. The Data API equivalent (`channels` + `playlistItems` for the uploads playlist) costs more quota and doesn't let you sort by views without a follow-up `videos.list` per page.
+- **Related-video discovery** — open a known anchor track (e.g. Hoyna Hoyna) and read the right-rail "Up next" recommendations. Repeating this for ~20 anchors surfaces tracks that algorithmically cluster with our lane, including ones from composers/labels we'd never have queried directly. The Data API has no public "related videos" endpoint anymore.
+- **Language/lane filtering by sight** — YouTube's video thumbnails, channel names (e.g. *Aditya Music*, *Lahari Music | T-Series*), and titles in Telugu script give the agent a fast visual signal that text-only API results don't. A composer's "Telugu hits" tab on YouTube is far cleaner than a search-API query that mixes Tamil + Hindi.
+- **Playlist browsing at scale** — YouTube Search → filter "Type: Playlist" surfaces hundreds of fan-curated and label playlists (e.g. "Telugu road trip", "Telugu college life", "Telugu energetic", "Telugu happy songs") that the Data API search can return but rendering and skimming them is much faster in a real browser.
+
+How to use it:
+
+1. Invoke the `playwright-bowser` skill (it's already an `allowed-tool` for this skill, since you're listed under `Skill` and `Agent`).
+2. Tell it the goal in plain language — e.g. *"Open `https://www.youtube.com/@AdityaMusic/videos`, switch the sort to 'Most popular', scroll, and capture the title + view count + URL of the top 50 videos that are Telugu film songs (skip ads, devotional, kids content)"*. Or *"Open `<anchor video URL>`, screenshot the right-rail Up Next list, then return the titles + URLs"*.
+3. The agent returns structured results you can fold into the candidate pool.
+
+When to **not** use Playwright:
+
+- For known-track verification (one artist + title → canonical YouTube video) — the Data API via `youtube_track_views.py` is faster and cheaper.
+- For tracklist extraction from a known DJ mix URL — `youtube_fetch.py` reads the description directly.
+- When you only need ≤2 search queries — the API is faster than spinning up a browser.
+
+Cost trade-off: Playwright sessions are slow (10–30 s per page) but quota-free. Use them when API-quota cost or API-result quality is the bottleneck, not when latency is.
 
 ### 3. Download a track
 
@@ -101,6 +131,143 @@ If a track has no auto-downloadable source, do NOT mark it failed. Update its en
 
 Then, in chat, give the user a tight summary: "Tracks 4, 7, 9 need manual download — links in `mixes/<id>/tracklist.json`. Drop the files in `~/Downloads` when done and tell me to arrange them."
 
+### 4b. Extract cued tracks from rekordbox
+
+When the user asks "which tracks have I cued?" / "what's in my library already prepped?" / wants to seed a set-building task from their own catalog, pull the cued-track list out of rekordbox. There are two readers — same output shape, different sources:
+
+**Live DB (default):**
+
+```bash
+.claude/skills/dj-research-agent/.venv/bin/python \
+  ${CLAUDE_SKILL_DIR}/scripts/extract_cued_from_db.py \
+  --min-hot-cues 2 \
+  --genre-folder "Telugu 9XM"
+```
+
+**XML export (fallback / archival):**
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/extract_cued_from_xml.py \
+  --xml rekordbox-export.xml \
+  --min-hot-cues 2 \
+  --genre-folder "Telugu 9XM"
+```
+
+Defaults: `--min-hot-cues 2`, `--library-root ~/Desktop/DJ-Music`. Omit `--genre-folder` to get all cued tracks regardless of folder. Output is JSON to stdout (per repo script contract).
+
+When to use which:
+- **DB**: default. Always current. Rekordbox can stay open — pyrekordbox just warns. Needs the bundled venv (one-time `pip install pyrekordbox` in `.claude/skills/dj-research-agent/.venv/`).
+- **XML**: when the venv isn't available, or when the user wants to read a historical export. The export is a snapshot — if the count looks lower than expected, tell the user to re-export (File → Export Collection in XML format).
+
+See `reference/rekordbox-extraction.md` for the output schema, edge cases, and venv setup.
+
+### 4c. Write hot cues into rekordbox
+
+Two write primitives. `set_cue.py` for one-off edits, `bulk_cue_from_json.py` for batches (this is what the future `analyze_structure` module will target).
+
+**Hard safety rule: rekordbox must be CLOSED before writing.** The scripts refuse to run otherwise (exit 2) unless `--force` is passed. Every write also creates a timestamped `master.db.bak-<ts>` backup automatically.
+
+```bash
+# List a track's current hot cues (read-only, safe to run anytime):
+.claude/skills/dj-research-agent/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/set_cue.py \
+  list --track-id 140962206
+
+# Add one cue at 45.5s on slot D:
+.claude/skills/dj-research-agent/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/set_cue.py \
+  add --track-id 140962206 --slot D --start-sec 45.5 --color green --name "DROP"
+
+# Apply a batch plan:
+.claude/skills/dj-research-agent/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/bulk_cue_from_json.py \
+  --plan mixes/<set-id>/cue-plan.json
+
+# Always dry-run a plan first to see the resolved diff:
+.claude/skills/dj-research-agent/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/bulk_cue_from_json.py \
+  --plan mixes/<set-id>/cue-plan.json --dry-run
+```
+
+Slots are A..H (Kind 1..8 in the rekordbox schema). Colors: pink / orange / yellow / green / blue / purple / red / none.
+
+Plan JSON shape:
+
+```jsonc
+{
+  "name": "freeform label",
+  "edits": [
+    {
+      "track_id": "140962206",
+      "ops": [
+        {"action": "add",    "slot": "F", "start_sec": 32.5, "color": "green", "name": "MIX-IN"},
+        {"action": "update", "slot": "A", "name": "INTRO"},
+        {"action": "delete", "slot": "H"}
+      ]
+    }
+  ]
+}
+```
+
+The whole batch commits as one transaction — if any op fails validation, nothing writes.
+
+**Future integration:** the `analyze_structure` module (separate sprint) will produce these JSON plans automatically from structural analysis (intro/drop/outro detection, mix-in/mix-out reasoning informed by mixing-theory rules). Treat `bulk_cue_from_json.py` as that module's write target.
+
+#### Verifying writes round-trip (one-time, do this before any real bulk write)
+
+Before trusting the writer on real library data:
+
+1. Quit rekordbox.
+2. Pick a throwaway test track and note its `track_id` (use `extract_cued_from_db.py` to find it).
+3. Add a test cue: `set_cue.py add --track-id <id> --slot H --start-sec 30 --color yellow --name "ROUNDTRIP TEST"`. Confirm the output JSON has `"ok": true` and a backup path.
+4. Open rekordbox. Load the track. Confirm slot H shows a yellow cue at ~30s labeled "ROUNDTRIP TEST".
+5. Quit rekordbox.
+6. Delete the test cue: `set_cue.py delete --track-id <id> --slot H`. Re-open rekordbox, confirm gone.
+
+If steps 4 or 6 fail, the write semantics need investigation before any further use. Backups are at `~/Library/Pioneer/rekordbox/master.db.bak-<timestamp>` — restore by quitting rekordbox and `cp <backup> ~/Library/Pioneer/rekordbox/master.db`.
+
+### 4d. Read / write rekordbox playlists
+
+Two write-side scripts + one read-side script let you push a finalised set in `sets/<slug>/set.json` (see CLAUDE.md → "Set schema") into rekordbox as a playable playlist.
+
+**Read:**
+
+```bash
+# All playlists, summary only
+.claude/skills/dj-research-agent/.venv/bin/python \
+  ${CLAUDE_SKILL_DIR}/scripts/extract_playlists.py
+
+# One playlist with full track membership
+.claude/skills/dj-research-agent/.venv/bin/python \
+  ${CLAUDE_SKILL_DIR}/scripts/extract_playlists.py \
+  --name "Telugu 9XM" --with-tracks
+```
+
+Read is safe while rekordbox is open (pyrekordbox just warns).
+
+**Single-op writer** (`set_playlist.py` — mirrors `set_cue.py`'s pattern). Subcommands: `list`, `create`, `rename`, `delete`, `add-track`, `remove-track`, `reorder`. Use this for one-off edits or smoke-testing.
+
+```bash
+# Create + populate
+${CLAUDE_SKILL_DIR}/scripts/set_playlist.py create --name "My Set" --auto-close-rekordbox
+${CLAUDE_SKILL_DIR}/scripts/set_playlist.py add-track --playlist-name "My Set" --track-id 68643951 --auto-close-rekordbox
+${CLAUDE_SKILL_DIR}/scripts/set_playlist.py reorder --playlist-name "My Set" --track-id 68643951 --position 3 --auto-close-rekordbox
+${CLAUDE_SKILL_DIR}/scripts/set_playlist.py remove-track --playlist-name "My Set" --track-id 68643951 --auto-close-rekordbox
+${CLAUDE_SKILL_DIR}/scripts/set_playlist.py delete --name "My Set" --auto-close-rekordbox
+```
+
+**Bulk sync** (`sync_set_to_rekordbox.py`): push a whole `set.json` into rekordbox idempotently. Diffs current playlist vs. the JSON, applies the minimal set of add/remove/reorder ops.
+
+```bash
+# Dry-run first — always
+${CLAUDE_SKILL_DIR}/scripts/sync_set_to_rekordbox.py --set telugu-9xm-30min-v1 --dry-run
+
+# Apply (rekordbox must be closed, or pass --auto-close-rekordbox)
+${CLAUDE_SKILL_DIR}/scripts/sync_set_to_rekordbox.py --set telugu-9xm-30min-v1 --auto-close-rekordbox
+```
+
+Tracks with `sequence: null` in `set.json` are **skipped** by sync — they're treated as "not yet placed". Once you assign a `sequence`, the next sync picks them up. This lets you build a set incrementally without prematurely pushing half-placed tracks.
+
+The rekordbox playlist name defaults to `set.title` from the JSON. Override with `--playlist-name`. Re-syncing the same JSON is a no-op when nothing has changed.
+
+Safety semantics are the same as the cue writers: refuses to write while rekordbox is running unless `--auto-close-rekordbox` or `--force`; backs up `master.db` before any write; one transaction per invocation with rollback on failure. See `reference/rekordbox-playlists.md` for the schema + op-order details.
+
 ### 5. Arrange downloaded files into the library
 
 When the user says "arrange these" or "I downloaded the files", look in `~/Downloads` (or wherever they specify) for audio files (`.mp3`, `.flac`, `.wav`, `.aiff`, `.m4a`). For each file:
@@ -116,7 +283,7 @@ Use `bash ${CLAUDE_SKILL_DIR}/scripts/probe_audio.sh "<file>"` to read bitrate +
 ## File conventions
 
 - **Mix folder**: `mixes/<youtube-video-id>/`
-  - `tracklist.json` — canonical structured tracklist (see `examples/tracklist.schema.json`)
+  - `tracklist.json` — canonical structured tracklist (see `examples/tracklist.schema.json` for YouTube-mix extraction, `examples/curated-lane-tracklist.schema.json` for curated-lane mixes; the reader UI at `/mixes/<mix-id>` consumes the latter)
   - `raw-description.txt` — the unparsed description, kept for reference
   - `notes.md` — anything you learned that doesn't fit the schema
 - **Music library**: `~/Desktop/DJ-Music/<Genre>/<Artist> - <Title>.mp3` — see "Library layout" below.
@@ -173,6 +340,8 @@ The user's music library is `~/Desktop/DJ-Music/`. Inside it, every track has **
 - `reference/source-priority.md` — full ranking + notes per source type.
 - `reference/vibe-telugu-9xm-feels.md` — curation profile for "warm romantic chill Telugu" mixes (the Telugu cousin of Hindi 9XM Feels). Read this when the user asks for a Telugu chill / feel-good / warm-romantic mix or a "Telugu version of [Hindi mix]". Encodes era weighting, singer-palette caps, and what to exclude.
 - `reference/vibe-telugu-feel-good-upbeat.md` — sister profile for "feel-good upbeat / pop-rock / energetic-romantic" Telugu mixes. The shoulder-bobbing college / road-trip / "Happy 2006" lane. Read this when the user asks for upbeat / peppy / pop / road-trip / Anirudh-style Telugu mixes. Encodes the IN/OUT rules, anchor tracks, and how to harvest Spotify's "Happy Vibes Telugu" editorial playlist.
+- `reference/rekordbox-extraction.md` — schema + safety details for reading cued tracks AND writing hot cues. Cue ID/UUID conventions, NOT NULL fields on insert, slot+color encoding, transaction semantics.
+- `reference/rekordbox-playlists.md` — schema + safety details for the playlist CRUD scripts. `DjmdPlaylist` / `DjmdSongPlaylist` columns, pyrekordbox high-level API, sync op-order (removes → reorders → adds), conventions our scripts rely on.
 
 ## Example flow
 

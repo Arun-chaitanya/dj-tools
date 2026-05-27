@@ -1,0 +1,152 @@
+{
+  "total_tracks": 880,
+  "tracks_with_cues": 27,
+  "total_position_marks": 94,
+  "kind_usage": {
+    "hot_cue": 93,
+    "loop": 1
+  },
+  "pad_slot_usage_A_to_P": {
+    "A": 24,
+    "B": 21,
+    "C": 22,
+    "D": 21,
+    "E": 1,
+    "F": 1,
+    "G": 1,
+    "H": 2,
+    "I": 0,
+    "J": 0,
+    "K": 0,
+    "L": 0,
+    "M": 0,
+    "N": 0,
+    "O": 0,
+    "P": 0
+  },
+  "color_usage": [
+    {
+      "rgb": [
+        255,
+        55,
+        111
+      ],
+      "count": 24
+    },
+    {
+      "rgb": [
+        125,
+        193,
+        61
+      ],
+      "count": 22
+    },
+    {
+      "rgb": [
+        69,
+        172,
+        219
+      ],
+      "count": 21
+    },
+    {
+      "rgb": [
+        170,
+        114,
+        255
+      ],
+      "count": 21
+    },
+    {
+      "rgb": [
+        195,
+        175,
+        4
+      ],
+      "count": 2
+    },
+    {
+      "rgb": [
+        48,
+        210,
+        110
+      ],
+      "count": 1
+    },
+    {
+      "rgb": [
+        224,
+        100,
+        27
+      ],
+      "count": 1
+    },
+    {
+      "rgb": [
+        48,
+        90,
+        255
+      ],
+      "count": 1
+    },
+    {
+      "rgb": [
+        255,
+        140,
+        0
+      ],
+      "count": 1
+    }
+  ],
+  "phrase_position_hist": {
+    "1": 43,
+    "2": 33,
+    "3": 14,
+    "4": 4
+  },
+  "bar_in_phrase_hist_1_to_16": {
+    "1": 14,
+    "2": 2,
+    "3": 2,
+    "4": 8,
+    "5": 4,
+    "6": 9,
+    "7": 6,
+    "8": 9,
+    "9": 11,
+    "10": 8,
+    "11": 2,
+    "12": 1,
+    "13": 8,
+    "14": 2,
+    "15": 3,
+    "16": 5
+  },
+  "playlists": [
+    {
+      "name": "DHH",
+      "entries": 467,
+      "path": "ROOT/DHH"
+    },
+    {
+      "name": "30th April Homework",
+      "entries": 0,
+      "path": "ROOT/30th April Homework"
+    },
+    {
+      "name": "CUE Analysis Playlist",
+      "entries": 25,
+      "path": "ROOT/CUE Analysis Playlist"
+    },
+    {
+      "name": "Bollywood",
+      "entries": 26,
+      "path": "ROOT/Bollywood"
+    },
+    {
+      "name": "Telugu",
+      "entries": 274,
+      "path": "ROOT/Telugu"
+    }
+  ]
+}

@@ -14,6 +14,20 @@ export default async function HomePage() {
           <div className="flex-1">
             <p className="text-[11px] uppercase tracking-[0.3em] text-[var(--color-ink-mute)] dark:text-[var(--color-night-mute)] mb-3">
               Notes from the booth
+              <span className="mx-2">·</span>
+              <a
+                href="/mixes"
+                className="hover:text-[var(--color-accent)] dark:hover:text-[var(--color-night-accent)] transition-colors"
+              >
+                Mixes →
+              </a>
+              <span className="mx-2">·</span>
+              <a
+                href="/sets"
+                className="hover:text-[var(--color-accent)] dark:hover:text-[var(--color-night-accent)] transition-colors"
+              >
+                Sets →
+              </a>
             </p>
             <h1 className="font-display text-5xl md:text-6xl tracking-tight leading-[0.95] text-[var(--color-ink)] dark:text-[var(--color-night-ink)]">
               DJ Lessons

@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DJ Curated-Lane Tracklist",
+  "description": "Canonical schema for tracklist.json in mixes/<lane-slug>/. Used for hand-curated lane collections (e.g. telugu-9xm-feels-v1, telugu-feel-good-upbeat-v2) harvested from multiple source playlists. NOT for tracklists extracted from a single YouTube DJ mix — see tracklist.schema.json for that.",
+  "type": "object",
+  "required": ["mix", "tracks"],
+  "properties": {
+    "_comment": { "type": "string", "description": "Free-form provenance note. Optional but recommended." },
+    "mix": {
+      "type": "object",
+      "required": ["mix_id", "title", "total_tracks"],
+      "properties": {
+        "mix_id": { "type": "string", "description": "Slug or YouTube video ID. Matches the folder name under mixes/." },
+        "title": { "type": "string" },
+        "description": { "type": "string", "description": "1–3 sentence vibe summary." },
+        "lane_profile": { "type": "string", "description": "Path to the .claude/skills/dj-research-agent/reference/vibe-*.md profile this mix follows." },
+        "created": { "type": "string", "format": "date", "description": "ISO date YYYY-MM-DD when curation began." },
+        "total_tracks": { "type": "integer", "minimum": 0 },
+        "popularity_floor": { "type": "string", "description": "Optional human-readable description of the popularity floor applied (e.g. 'pre-2018 ≥ 2M views, 2018+ ≥ 10M'). Only present if the mix applies a floor." }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "description": "Track order is meaningful — there is no separate index field; the array index IS the index.",
+      "items": {
+        "type": "object",
+        "required": ["title", "status"],
+        "properties": {
+          "title": { "type": "string", "description": "Song title." },
+          "artists": { "type": ["string", "null"], "description": "Composers + singers, comma-joined. null if unknown." },
+          "film": { "type": ["string", "null"], "description": "Film/album name. null for non-film." },
+          "year": { "type": ["integer", "null"] },
+
+          "video_id": { "type": ["string", "null"], "description": "11-char YouTube video ID. null if unresolved." },
+          "youtube_url": { "type": ["string", "null"], "format": "uri" },
+          "youtube_title": { "type": ["string", "null"], "description": "Full YT-side title — useful for fuzzy match across re-runs." },
+          "youtube_channel": { "type": ["string", "null"] },
+          "view_count": { "type": ["integer", "null"], "description": "Raw integer (NOT '192.3M'). UI/code formats on render." },
+
+          "sources": { "type": "array", "items": { "type": "string" }, "description": "Names of source playlists/sources that surfaced this track. Used for ranking by appearance count." },
+          "appears_in_playlists_count": { "type": "integer", "description": "Denormalized = len(sources). Convenience for sort." },
+          "passes_popularity_floor": { "type": "boolean", "description": "Optional. Present only when mix.popularity_floor is set." },
+
+          "phase": { "type": "string", "description": "Optional. Freeform harvest-phase tag (e.g. 'p1+2', 'p3')." },
+          "why_in": { "type": ["string", "null"], "description": "Optional. Curator's freeform reason this fits the lane." },
+          "boundary": { "type": "boolean", "description": "Optional. true = flagged for user review (lane-boundary call)." },
+
+          "status": {
+            "type": "string",
+            "enum": ["planned", "downloaded", "needs_manual", "skipped"],
+            "description": "Download state. Defaults to 'planned'."
+          }
+        }
+      }
+    }
+  }
+}

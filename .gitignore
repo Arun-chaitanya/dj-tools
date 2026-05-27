@@ -8,6 +8,9 @@
 # Lesson notes — personal
 /lessons/
 
+# Performable sets — personal
+/sets/
+
 # Reader app local artifacts
 reader/node_modules/
 reader/.next/
@@ -16,8 +19,19 @@ reader/tsconfig.tsbuildinfo
 
 # Local Claude Code state
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
-# Local browser-automation profiles
-.playwright-cli/
-.playwright-profile/
-.playwright-mcp/
+# Rekordbox library exports — personal
+/rekordbox-export.xml
+/rekordbox-export*.xml
+
+# Skill-local venvs (e.g. pyrekordbox for the cued-tracks extractor)
+.claude/skills/*/.venv/
+
+# Python bytecode caches (anywhere in the tree)
+**/__pycache__/
+*.pyc
+
+# Local browser-automation profiles — everything goes under .playwright/ (at any depth)
+**/.playwright/
+.playwright/

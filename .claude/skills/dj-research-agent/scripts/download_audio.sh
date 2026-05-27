@@ -66,14 +66,15 @@ ffmpeg -y -hide_banner -loglevel error \
   -metadata "title=$TITLE" \
   "$OUT_FILE" >&2
 
-# Output result
-python3 -c "
-import json
+# Output result. Pass strings via argv (env-safe: handles apostrophes, quotes, etc.)
+python3 - "$OUT_FILE" "$SRC_CODEC" "$SRC_BITRATE_KBPS" <<'PY'
+import json, sys
+out_file, codec, bitrate = sys.argv[1], sys.argv[2], sys.argv[3]
 print(json.dumps({
-  'status': 'downloaded',
-  'output_path': '$OUT_FILE',
-  'source_bitrate_kbps': $SRC_BITRATE_KBPS,
-  'source_codec': '$SRC_CODEC',
-  'transcoded_to_kbps': 320,
+  "status": "downloaded",
+  "output_path": out_file,
+  "source_bitrate_kbps": int(bitrate or 0),
+  "source_codec": codec,
+  "transcoded_to_kbps": 320,
 }, indent=2))
-"
+PY
